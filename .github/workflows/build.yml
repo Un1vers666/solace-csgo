@@ -16,11 +16,6 @@ jobs:
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v2
 
-    - name: Install DirectX SDK
-      run: |
-        curl.exe -L -o DXSDK_Jun10.exe https://microsoft.com
-        Start-Process -FilePath .\DXSDK_Jun10.exe -ArgumentList "/S" -Wait
-
     - name: Build Solution
       run: msbuild solace-csgo.sln /p:Configuration=Release /p:Platform=x86 /p:WindowsTargetPlatformVersion=10.0
 
