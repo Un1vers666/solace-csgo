@@ -29,8 +29,9 @@ jobs:
 
     - name: Build Solution
       run: |
-        $sdk = (Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\Lib" -Filter "10.0.*" | Where-Object { Test-Path "$($_.FullName)\um\x86\kernel32.lib" } | Select-Object -First 1).Name
-        Write-Host "Using valid Windows SDK: $sdk"
+        $regSdk = (Get-ItemProperty "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Microsoft SDKs\Windows\v10.0" -ErrorAction SilentlyContinue).ProductVersion
+        $sdk = "$regSdk.0"
+        Write-Host "Registry SDK: $sdk"
         msbuild solace-csgo.sln /p:Configuration=Release /p:Platform=x86 /p:WindowsTargetPlatformVersion=$sdk /p:UseEnv=true
 
     - name: Upload DLL
