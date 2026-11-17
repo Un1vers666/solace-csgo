@@ -1,0 +1,31 @@
+name: Build Solace DLL
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "master", "main" ]
+
+jobs:
+  build:
+    runs-on: windows-2022
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Install DirectX SDK
+      run: |
+        curl.exe -L -o DXSDK_Jun10.exe https://microsoft.com
+        Start-Process -FilePath .\DXSDK_Jun10.exe -ArgumentList "/S" -Wait
+
+    - name: Build Solution
+      run: msbuild solace-csgo.sln /p:Configuration=Release /p:Platform=x86 /p:WindowsTargetPlatformVersion=10.0
+
+    - name: Upload DLL
+      uses: actions/upload-artifact@v4
+      with:
+        name: solace-dll
+        path: Release/*.dll
