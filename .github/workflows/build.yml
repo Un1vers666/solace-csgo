@@ -1,13 +1,13 @@
 name: Build Solace DLL
 
 on:
-  workflow_dispatch:
   push:
-    branches: [ "master", "main" ]
+    branches: [ "master" ]
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: windows-2022
+    runs-on: windows-latest
 
     steps:
     - name: Checkout repository
@@ -16,26 +16,22 @@ jobs:
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v2
 
-    - name: Install D3DX9 via NuGet
+    - name: Install DirectX SDK via NuGet
       run: |
-        nuget install Microsoft.DXSDK.D3DX -Version 9.29.952.8 -OutputDirectory dxsdk
-        $pkg = (Get-ChildItem -Path dxsdk -Filter "Microsoft.DXSDK.D3DX*" | Select-Object -First 1).FullName
-        $inc = "$pkg\build\native\include"
-        $lib = "$pkg\build\native\release\lib\x86"
-        $env:INCLUDE = "$inc;$env:INCLUDE"
-        $env:LIB = "$lib;$env:LIB"
-        echo "INCLUDE=$env:INCLUDE" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        echo "LIB=$env:LIB" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        nuget install Microsoft.DXSDK.D3DX -Version 9.29.952.8 -OutputDirectory packages
+        $d3dx = Resolve-Path "packages\Microsoft.DXSDK.D3DX.9.29.952.8\build\native"
+        echo "INCLUDE=$d3dx\include;$env:INCLUDE" >> $env:GITHUB_ENV
+        echo "LIB=$d3dx\lib\x86;$env:LIB" >> $env:GITHUB_ENV
 
     - name: Build Solution
+      shell: pwsh
       run: |
-        $regSdk = (Get-ItemProperty "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Microsoft SDKs\Windows\v10.0" -ErrorAction SilentlyContinue).ProductVersion
-        $sdk = "$regSdk.0"
-        Write-Host "Registry SDK: $sdk"
-        msbuild solace-csgo.sln /p:Configuration=Release /p:Platform=x86 /p:WindowsTargetPlatformVersion=$sdk /p:UseEnv=true
+        $sdk = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\Include" | Sort-Object Name -Descending | Select-Object -First 1 -ExpandProperty Name
+        Write-Host "Using Windows SDK: $sdk"
+        msbuild solace-csgo.sln /p:Configuration=Release /p:Platform=x86 /p:WindowsTargetPlatformVersion=$sdk /p:PlatformToolset=v143 /p:UseEnv=true
 
     - name: Upload DLL
       uses: actions/upload-artifact@v4
       with:
-        name: solace-dll
+        name: solace-csgo-release
         path: Release/*.dll
