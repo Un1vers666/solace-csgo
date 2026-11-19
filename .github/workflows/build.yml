@@ -29,12 +29,23 @@ jobs:
         $dxInc = "$pkg\build\native\include"
         $dxLib = "$pkg\build\native\release\lib\x86"
 
-        $detoursLibFile = Get-ChildItem -Path . -Recurse -Filter "detours.lib" | Where-Object { $_.FullName -match "x86|Win32" } | Select-Object -First 1
-        if (-not $detoursLibFile) {
-          $detoursLibFile = Get-ChildItem -Path . -Recurse -Filter "detours.lib" | Select-Object -First 1
+        $detoursPkg = (Get-ChildItem -Path dxsdk -Filter "Detours*" | Select-Object -First 1).FullName
+        $detoursInc = "$detoursPkg\build\native\include"
+        $detoursLibDir = (Get-ChildItem -Path $detoursPkg -Recurse -Filter "detours.lib" | Where-Object { $_.FullName -match "x86" } | Select-Object -First 1).DirectoryName
+
+        # Добавляем совместимость DetourFunction поверх Detours 4.0.1
+        $shim = @"
+
+        #include <detours.h>
+        extern "C" PBYTE __stdcall DetourFunction(PBYTE pbTargetFunction, PBYTE pbDetourFunction) {
+            DetourTransactionBegin();
+            DetourUpdateThread(GetCurrentThread());
+            DetourAttach(&(PVOID&)pbTargetFunction, pbDetourFunction);
+            DetourTransactionCommit();
+            return pbTargetFunction;
         }
-        $detoursLibDir = $detoursLibFile.DirectoryName
-        Write-Host "Found detours.lib in: $detoursLibDir"
+        "@
+        Add-Content -Path "solace-csgo\hooks.cpp" -Value $shim
 
         $winH = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\Include\*\um\Windows.h" | Sort-Object FullName -Descending | Select-Object -First 1
         $sdk = $winH.Directory.Parent.Name
@@ -43,7 +54,7 @@ jobs:
         $vcxproj = "solace-csgo\solace-csgo.vcxproj"
         $content = Get-Content $vcxproj -Raw
         $content = $content -replace '<WindowsTargetPlatformVersion>.*?</WindowsTargetPlatformVersion>', "<WindowsTargetPlatformVersion>$sdk</WindowsTargetPlatformVersion>"
-        $block = '<PropertyGroup><IncludePath>' + $dxInc + ';$(IncludePath)</IncludePath><LibraryPath>' + $dxLib + ';' + $detoursLibDir + ';$(LibraryPath)</LibraryPath></PropertyGroup></Project>'
+        $block = '<PropertyGroup><IncludePath>' + $dxInc + ';' + $detoursInc + ';$(IncludePath)</IncludePath><LibraryPath>' + $dxLib + ';' + $detoursLibDir + ';$(LibraryPath)</LibraryPath></PropertyGroup></Project>'
         $content = $content -replace '</Project>', $block
         Set-Content $vcxproj $content
 
