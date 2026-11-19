@@ -16,10 +16,11 @@ jobs:
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v2
 
-    - name: Install DirectX SDK via NuGet
+    - name: Install Dependencies via NuGet
       shell: pwsh
       run: |
         nuget install Microsoft.DXSDK.D3DX -Version 9.29.952.8 -OutputDirectory dxsdk
+        nuget install Detours -OutputDirectory dxsdk
 
     - name: Build Solution
       shell: pwsh
@@ -28,6 +29,13 @@ jobs:
         $dxInc = "$pkg\build\native\include"
         $dxLib = "$pkg\build\native\release\lib\x86"
 
+        $detoursLibFile = Get-ChildItem -Path . -Recurse -Filter "detours.lib" | Where-Object { $_.FullName -match "x86|Win32" } | Select-Object -First 1
+        if (-not $detoursLibFile) {
+          $detoursLibFile = Get-ChildItem -Path . -Recurse -Filter "detours.lib" | Select-Object -First 1
+        }
+        $detoursLibDir = $detoursLibFile.DirectoryName
+        Write-Host "Found detours.lib in: $detoursLibDir"
+
         $winH = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\Include\*\um\Windows.h" | Sort-Object FullName -Descending | Select-Object -First 1
         $sdk = $winH.Directory.Parent.Name
         Write-Host "Using Windows SDK: $sdk"
@@ -35,7 +43,7 @@ jobs:
         $vcxproj = "solace-csgo\solace-csgo.vcxproj"
         $content = Get-Content $vcxproj -Raw
         $content = $content -replace '<WindowsTargetPlatformVersion>.*?</WindowsTargetPlatformVersion>', "<WindowsTargetPlatformVersion>$sdk</WindowsTargetPlatformVersion>"
-        $block = '<PropertyGroup><IncludePath>' + $dxInc + ';$(IncludePath)</IncludePath><LibraryPath>' + $dxLib + ';$(LibraryPath)</LibraryPath></PropertyGroup></Project>'
+        $block = '<PropertyGroup><IncludePath>' + $dxInc + ';$(IncludePath)</IncludePath><LibraryPath>' + $dxLib + ';' + $detoursLibDir + ';$(LibraryPath)</LibraryPath></PropertyGroup></Project>'
         $content = $content -replace '</Project>', $block
         Set-Content $vcxproj $content
 
@@ -45,4 +53,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: solace-csgo-release
-        path: Release/*.dll
+        path: output/solace-csgo.dll
