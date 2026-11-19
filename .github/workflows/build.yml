@@ -20,7 +20,7 @@ jobs:
       shell: pwsh
       run: |
         nuget install Microsoft.DXSDK.D3DX -Version 9.29.952.8 -OutputDirectory dxsdk
-        nuget install Detours -OutputDirectory dxsdk
+        nuget install Detours -Version 4.0.1 -OutputDirectory dxsdk
 
     - name: Build Solution
       shell: pwsh
