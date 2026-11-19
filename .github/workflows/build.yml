@@ -18,17 +18,24 @@ jobs:
 
     - name: Install DirectX SDK via NuGet
       run: |
-        nuget install Microsoft.DXSDK.D3DX -Version 9.29.952.8 -OutputDirectory packages
-        $d3dx = Resolve-Path "packages\Microsoft.DXSDK.D3DX.9.29.952.8\build\native"
-        echo "INCLUDE=$d3dx\include;$env:INCLUDE" >> $env:GITHUB_ENV
-        echo "LIB=$d3dx\lib\x86;$env:LIB" >> $env:GITHUB_ENV
+        nuget install Microsoft.DXSDK.D3DX -Version 9.29.952.8 -OutputDirectory dxsdk
+        $pkg = (Get-ChildItem -Path dxsdk -Filter "Microsoft.DXSDK.D3DX*" | Select-Object -First 1).FullName
+        echo "INCLUDE=$pkg\build\native\include;$env:INCLUDE" >> $env:GITHUB_ENV
+        echo "LIB=$pkg\build\native\release\lib\x86;$env:LIB" >> $env:GITHUB_ENV
 
     - name: Build Solution
       shell: pwsh
       run: |
-        $sdk = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\Include" | Sort-Object Name -Descending | Select-Object -First 1 -ExpandProperty Name
-        Write-Host "Using Windows SDK: $sdk"
-        msbuild solace-csgo.sln /p:Configuration=Release /p:Platform=x86 /p:WindowsTargetPlatformVersion=$sdk /p:PlatformToolset=v143 /p:UseEnv=true
+        $winH = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\Include\*\um\Windows.h" | Sort-Object FullName -Descending | Select-Object -First 1
+        $sdk = $winH.Directory.Parent.Name
+        Write-Host "Found valid Windows SDK: $sdk"
+        
+        $vcxproj = "solace-csgo\solace-csgo.vcxproj"
+        $content = Get-Content $vcxproj
+        $content = $content -replace '<WindowsTargetPlatformVersion>.*?</WindowsTargetPlatformVersion>', "<WindowsTargetPlatformVersion>$sdk</WindowsTargetPlatformVersion>"
+        Set-Content $vcxproj $content
+
+        msbuild solace-csgo.sln /p:Configuration=Release /p:Platform=x86 /p:UseEnv=true
 
     - name: Upload DLL
       uses: actions/upload-artifact@v4
