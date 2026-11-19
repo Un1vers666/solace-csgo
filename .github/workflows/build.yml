@@ -29,9 +29,10 @@ jobs:
         $dxInc = "$pkg\build\native\include"
         $dxLib = "$pkg\build\native\release\lib\x86"
 
-        $detoursPkg = (Get-ChildItem -Path dxsdk -Filter "Detours*" | Select-Object -First 1).FullName
-        $detoursInc = "$detoursPkg\build\native\include"
-        $detoursLibDir = (Get-ChildItem -Path $detoursPkg -Recurse -Filter "detours.lib" | Where-Object { $_.FullName -match "x86" } | Select-Object -First 1).DirectoryName
+        $detoursInc = (Get-ChildItem -Path dxsdk -Recurse -Filter "detours.h" | Select-Object -First 1).DirectoryName
+        $detoursLibDir = (Get-ChildItem -Path dxsdk -Recurse -Filter "detours.lib" | Where-Object { $_.FullName -match "x86" } | Select-Object -First 1).DirectoryName
+        Write-Host "Found detours.h in: $detoursInc"
+        Write-Host "Found detours.lib in: $detoursLibDir"
 
         # Добавляем совместимость DetourFunction поверх Detours 4.0.1
         $shim = @"
