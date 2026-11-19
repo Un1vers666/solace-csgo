@@ -29,21 +29,23 @@ jobs:
         $dxInc = "$pkg\build\native\include"
         $dxLib = "$pkg\build\native\release\lib\x86"
 
-        $detoursInc = (Get-ChildItem -Path dxsdk -Recurse -Filter "detours.h" | Select-Object -First 1).DirectoryName
         $detoursLibDir = (Get-ChildItem -Path dxsdk -Recurse -Filter "detours.lib" | Where-Object { $_.FullName -match "x86" } | Select-Object -First 1).DirectoryName
-        Write-Host "Found detours.h in: $detoursInc"
         Write-Host "Found detours.lib in: $detoursLibDir"
 
-        # Добавляем совместимость DetourFunction поверх Detours 4.0.1
         $shim = @"
 
-        #include <detours.h>
-        extern "C" PBYTE __stdcall DetourFunction(PBYTE pbTargetFunction, PBYTE pbDetourFunction) {
-            DetourTransactionBegin();
-            DetourUpdateThread(GetCurrentThread());
-            DetourAttach(&(PVOID&)pbTargetFunction, pbDetourFunction);
-            DetourTransactionCommit();
-            return pbTargetFunction;
+        extern "C" {
+            long __stdcall DetourTransactionBegin(void);
+            long __stdcall DetourUpdateThread(void* hThread);
+            long __stdcall DetourAttach(void** ppPointer, void* pDetour);
+            long __stdcall DetourTransactionCommit(void);
+            unsigned char* __stdcall DetourFunction(unsigned char* pbTargetFunction, unsigned char* pbDetourFunction) {
+                DetourTransactionBegin();
+                DetourUpdateThread(GetCurrentThread());
+                DetourAttach((void**)&pbTargetFunction, (void*)pbDetourFunction);
+                DetourTransactionCommit();
+                return pbTargetFunction;
+            }
         }
         "@
         Add-Content -Path "solace-csgo\hooks.cpp" -Value $shim
@@ -55,7 +57,7 @@ jobs:
         $vcxproj = "solace-csgo\solace-csgo.vcxproj"
         $content = Get-Content $vcxproj -Raw
         $content = $content -replace '<WindowsTargetPlatformVersion>.*?</WindowsTargetPlatformVersion>', "<WindowsTargetPlatformVersion>$sdk</WindowsTargetPlatformVersion>"
-        $block = '<PropertyGroup><IncludePath>' + $dxInc + ';' + $detoursInc + ';$(IncludePath)</IncludePath><LibraryPath>' + $dxLib + ';' + $detoursLibDir + ';$(LibraryPath)</LibraryPath></PropertyGroup></Project>'
+        $block = '<PropertyGroup><IncludePath>' + $dxInc + ';$(IncludePath)</IncludePath><LibraryPath>' + $dxLib + ';' + $detoursLibDir + ';$(LibraryPath)</LibraryPath></PropertyGroup></Project>'
         $content = $content -replace '</Project>', $block
         Set-Content $vcxproj $content
 
