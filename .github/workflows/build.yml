@@ -35,8 +35,7 @@ jobs:
         $vcxproj = "solace-csgo\solace-csgo.vcxproj"
         $content = Get-Content $vcxproj -Raw
         $content = $content -replace '<WindowsTargetPlatformVersion>.*?</WindowsTargetPlatformVersion>', "<WindowsTargetPlatformVersion>$sdk</WindowsTargetPlatformVersion>"
-        $content = $content -replace '\$\(DXSDK_DIR\)Include', $dxInc
-        $content = $content -replace '\$\(DXSDK_DIR\)Lib\\x86', $dxLib
+        $content = $content -replace '</Project>', "<PropertyGroup><IncludePath>$dxInc;$(IncludePath)</IncludePath><LibraryPath>$dxLib;$(LibraryPath)</LibraryPath></PropertyGroup></Project>"
         Set-Content $vcxproj $content
 
         msbuild solace-csgo.sln /p:Configuration=Release /p:Platform=x86
